@@ -98,6 +98,12 @@ func (p *Player) Reset() {
 }
 
 func (p *Player) ReplayOnce(ctx context.Context, req *http.Request) (*http.Response, error) {
-	_ = ctx
-	return p.RoundTrip(req)
+	// Honor ctx at the API boundary: a cancelled context must abort the
+	// replay rather than fall through to RoundTrip, which only inspects
+	// the request's own context. Attach ctx so in-flight cancellation is
+	// also observed while matching against the cassette.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return p.RoundTrip(req.WithContext(ctx))
 }
